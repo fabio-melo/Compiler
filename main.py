@@ -1,12 +1,15 @@
-from utils import load_program,pretty_print
+from utils import load, gui_l
 from lexical import Lexer
 from sys import argv
 import timeit
 
 if __name__ == '__main__':
-   # t0 = time.time()
-    programa = load_program('code.for') 
-    l = Lexer(programa)
-    l.get_tokens('verbose')
 
-    print(timeit.timeit(l.get_tokens, number=100000))
+  if len(argv) > 1:
+    if '-gui' in argv:
+      argv.remove('-gui')
+      gui_l(Lexer(load(argv[1])).get_tokens())
+    else:
+      Lexer(load(argv[1])).get_tokens('verbose')
+  else:
+    Lexer(load('code.for')).get_tokens('verbose')
