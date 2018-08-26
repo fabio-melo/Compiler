@@ -1,26 +1,5 @@
 # Utils
 
-class Token:
-  def __init__(self, symbol, kind, line):
-    self.symbol = symbol
-    self.kind = kind
-    self.line = line
-
-  def print_token(self):
-    print(str(self.line) + ' ' + str(self.kind) + ' ' + str(self.symbol))
-
-
-def alert(debug, kind, alert):
-  if kind == 0: 
-    if debug: print("[" + debug[0] + "]INFO:  " + alert)
-    return True
-  elif kind == 1: 
-    if debug: print("[" + debug[0] + "]WARNING:" + alert)
-    return True
-  elif kind == 2: 
-    if debug: print("[" + debug[0] + "]ERROR: " + alert)
-    return False
-
 def load(program_file):
   with open(program_file,'r') as pr: # assegurar que o arquivo irá ser fechado
     program = pr.read()

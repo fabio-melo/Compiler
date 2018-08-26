@@ -1,5 +1,6 @@
 import re #biblioteca de expressões regulares
-from utils import Token, alert
+from token import Token
+from alert import alert
 
 class Lexer:
   def __init__(self, program, debug=False):
@@ -104,7 +105,7 @@ class Lexer:
 
     if char_1 is ':' and char_2 is '=':
       self._consume_char() 
-      self._commit_token('attibution')
+      self._commit_token('attribution')
 
     elif (char_1 is '<' and char_2 in ['=','>']) or \
        (char_1 is '>' and char_2 is '='):        
@@ -122,7 +123,7 @@ class Lexer:
 
     # Simbolos Compostos de unico caractere
 
-    elif char_1 in ['.',';','(',')',':']: 
+    elif char_1 in ['.',';','(',')',':',',']: 
       self._commit_token('delimiter')
     
     elif char_1 in ['=','<','>']:

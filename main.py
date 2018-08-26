@@ -5,7 +5,7 @@ from syntax import Syntax
 import timeit
 
 
-Syntax(Lexer(load('code.for'),debug=True).get_tokens()).start()
+Syntax(Lexer(load('code.for'),debug=True).get_tokens('output')).start()
 
 '''
 if __name__ == '__main__':
