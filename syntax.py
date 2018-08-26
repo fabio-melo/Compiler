@@ -35,7 +35,8 @@ class Syntax:
     if not self.tokens:
       alert(self._debug, 2, "Cannot proceed: token list contains lexical errors.")
       return False
-    self._simple_expression()
+    self._expression_list()
+
     #self._program_id() # program name
     #self._var_declarations() #var block
      # self._subprograms()
@@ -99,6 +100,25 @@ class Syntax:
           else: 
             return self._send_alert(2, ID_DEF + M_IDENT)
 
+
+
+  def _expression_list(self):
+
+    self._expression()
+
+    while self._read().symbol == ',': 
+      self._get(); self._expression()   
+
+
+  def _expression(self):
+    """
+    """
+    self._simple_expression()
+
+    while self._read().kind == 'relation': 
+      self._get(); self._simple_expression()   
+
+
   def _simple_expression(self):
     """
     <simple_ex> -> <termo> <simple_ex'> | <signal> <termo>
@@ -112,6 +132,7 @@ class Syntax:
 
     # enquanto aparecer adição, loopar em busca de termos    
     while self._read().kind == 'addition':
+      self._send_alert(0, "Addition")
       self._get(); self._term()
 
 
@@ -123,8 +144,9 @@ class Syntax:
     """
     self._factor()
 
-    if self._read().kind == 'multiplication': 
-      self._get(); self._term()
+    while self._read().kind == 'multiplication': 
+      self._send_alert(0, "Multiplication")
+      self._get(); self._factor()
     
 
   def _factor(self):
@@ -133,21 +155,34 @@ class Syntax:
     factor = self._read()
     if factor.kind in ['integer','real','boolean']:
       self._get()
-      return self._send_alert(0, VALIDATED)
+      return self._send_alert(0, 'Factor - Number/Bool - Ok!')
     elif factor.kind == 'identifier': 
+      self._get()
       if self._read().symbol == '(':
-        pass
+        self._send_alert(0, "id(Expression) Opened")
+        self._get()
+        self._expression_list()
         #TO-DO LIST OF EXPRESSION
         if self._read().symbol == ')':
-          pass
+          self._get()
+          self._send_alert(0, "id(Expression) Closed")
+        else: 
+          return self._send_alert(2, "Unclosed Expression - Missing ')'")
       else:
-        self._get() #VALIDADO IDENTIFICADOR
-        return self._send_alert(0, "FACTOR - " + VALIDATED)
+        #VALIDADO IDENTIFICADOR
+        self._send_alert(0, "Factor -  Identifier - Ok!")
     elif factor.symbol == 'not':
+      self._get()
+      self._send_alert(0, "NOT")
       self._factor()
     elif factor.symbol == '(':
-      pass
-      # TO-DO EXPRESSION
+      self._send_alert(0, "(Expression) Opened")
+      self._get(); self._expression()
+      if self._read().symbol == ')':
+        self._get()
+        self._send_alert(0, "(Expression) Closed")
+      else:
+        return self._send_alert(2, 'Unclosed Expression - Missing ")" ')
     else:
       self._send_alert(2,"Missing Factor")
     
