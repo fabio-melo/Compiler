@@ -1,3 +1,4 @@
+import sys
 
 DATA_TYPES = ['integer', 'real', 'boolean']
 
@@ -21,5 +22,7 @@ def alert(debug, kind, alert):
     if debug: print("[" + debug[0] + "]WARNING:" + alert)
     return True
   elif kind == 2: 
-    if debug: print("[" + debug[0] + "]ERROR:  " + alert)
+    if debug: 
+      print("[" + debug[0] + "]ERROR:  " + alert)
+      sys.exit()
     return False

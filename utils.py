@@ -1,5 +1,17 @@
 # Utils
 
+
+class Token:
+  def __init__(self, symbol, kind, line, id_):
+    self.symbol = symbol
+    self.kind = kind
+    self.line = line
+    self.id_ = id_
+
+  def print_token(self):
+    print(str(self.line) + ' ' + str(self.kind) + ' ' + str(self.symbol))
+
+
 def load(program_file):
   with open(program_file,'r') as pr: # assegurar que o arquivo irá ser fechado
     program = pr.read()

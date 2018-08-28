@@ -1,5 +1,5 @@
 import re #biblioteca de expressões regulares
-from token import Token
+from utils import Token
 from alert import alert
 
 class Lexer:
@@ -7,6 +7,7 @@ class Lexer:
     self.tokens = []
     self._current_symbol = []
     self._current_line = 1
+    self._current_id = 0
     self._queue = program
     self._debug = ['Lexer', debug]
     self._errors = []
@@ -177,23 +178,24 @@ class Lexer:
       temp = ''.join(self._current_symbol)
       if code == 'identifier':
         if temp in RESERVED_WORDS:
-          self.tokens.append(Token(temp, 'reserved', self._current_line))
+          self.tokens.append(Token(temp, 'reserved', self._current_line,self._current_id))
         elif temp in 'and':
-          self.tokens.append(Token(temp, 'multiplication', self._current_line))
+          self.tokens.append(Token(temp, 'multiplication', self._current_line, self._current_id))
         elif temp in 'or':
-          self.tokens.append(Token(temp, 'addition', self._current_line))
+          self.tokens.append(Token(temp, 'addition', self._current_line,self._current_id))
         elif temp in ['true','false']:
-          self.tokens.append(Token(temp, 'boolean', self._current_line))
+          self.tokens.append(Token(temp, 'boolean', self._current_line,self._current_id))
         else:
-          self.tokens.append(Token(temp, 'identifier', self._current_line))
+          self.tokens.append(Token(temp, 'identifier', self._current_line,self._current_id))
       elif code == 'invalid':
         self._send_alert('invalid')
       elif code == 'comment':
         pass #não faz nada
       else:
-        self.tokens.append(Token(temp, code, self._current_line))
+        self.tokens.append(Token(temp, code, self._current_line,self._current_id))
 
       self._current_symbol = [] # reseta a variavel temporaria
+      self._current_id += 1
 
   def _print_tokens(self):
     if self._errors:

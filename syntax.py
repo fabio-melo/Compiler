@@ -1,5 +1,10 @@
-from token import Token
-from alert import *
+from utils import Token
+from alert import alert
+from anytree import Node, RenderTree
+from anytree.exporter import DotExporter
+
+import sys
+
 
 
 class Syntax:
@@ -7,153 +12,233 @@ class Syntax:
     self.tokens = tokens
     self._debug = ['Syntax', debug]
     self._current_line = 0
+    self._tree = Node('Start')
+    self._count = 100
 
+  def export_to_file(self,file_):
+    self.start()
+    with open(file_,'w') as file:
+      for x in DotExporter(self._tree):
+        file.write(x)
 
   def _get(self):
+    """
+    Retorna e apaga o token da lista
+    """
     if self.tokens:
       symbol = self.tokens.pop(0)
       self._current_line = symbol.line
       return symbol
     else:
-      return Token(False,False,False)
+      return Token(False,False,False,False)
   
 
   def _read(self):
+    """
+    (Somente) lê o próximo token da lista
+    """
     if self.tokens:
       self._current_line = self.tokens[0].line
       return self.tokens[0]
     else:
-      return Token(False,False,False)
+      return Token(False,False,False,False)
 
 
+  def _add(self,curr):
+    tok = self._get()
+    return Node(str("("+ str(tok.id_) + ") " + tok.symbol), parent=curr)
 
-  def _send_alert(self, code, alert_msg):
-    ERRORMSG = ' Line ' + str(self._current_line) + ':  ' + alert_msg
-    return alert(self._debug,code,ERRORMSG)
+  def _error(self, alert_msg):
+    ERRORMSG = '[Syntax] ERROR: Line ' + str(self._current_line) + ':  ' + alert_msg
+    print(ERRORMSG)
+    return sys.exit()
 
   def start(self):
+    """
+    Inicia o Analizador e gera a arvore
+    """
     if not self.tokens:
-      alert(self._debug, 2, "Cannot proceed: token list contains lexical errors.")
+      self._error("Cannot proceed: token list contains lexical errors.")
       return False
-    self._program()
+
+    self._program(self._tree)
+    #print(RenderTree(self._tree))
+
+  def _program(self, curr):
+    '''
+    Programa. 
+    recebe o nó atual.
+    '''
+    curr = Node(str(self._count) + ' Program', parent=curr)
+    self._count += 1
+
+    if self._read().symbol == 'program':
+      self._add(curr)
+
+      if self._read().kind == 'identifier':
+        self._add(curr)
+
+        if self._read().symbol == ';':
+          self._add(curr)
+
+          if self._read().symbol == 'var':
+            self._var_declaration(curr)
+          self._procedure_list(curr)
+
+          if self._read().symbol == 'begin':
+            self._composite_command(curr)
+          if self._read().symbol == '.':
+            self._add(curr)
+
+            if self._read().symbol is not False:
+              self._error("Program - Tokens after Ending Dot")
+            else:
+              print("IT WORKS - Código Verificado")
+          else: 
+            self._error("Missing Program '.' ending dot")
+        else: return self._error("Program Definition - Missing Semicolon")
+      else: return self._error("Program Definition - Missing Identifier")
+    else: return self._error("Program Definition - Missing Reserved Word")
 
 
-  def _program(self):
-    if self._get().symbol == 'program':
-      if self._get().kind == 'identifier':
-        if self._get().symbol == ';':
-          self._send_alert(0,P_DEFI_E + VALIDATED)  
-          self._var_declarations()
-          self._procedure_list()
-          self._composite_command()
-          if self._get().symbol == '.':
-            self._send_alert(0, "PROGRAM PASSED!!!")
-        else: return self._send_alert(2,P_DEFI_E + M_SEMI)
-      else: return self._send_alert(2,P_DEFI_E + M_IDENT)
-    else: return self._send_alert(2,P_DEFI_E + M_RESERV)
-
-
-  def _procedure_list(self):
+  def _procedure_list(self,curr):
     """
     """
+    curr = Node( str(self._count) + " : Procedure List", parent=curr)
+    self._count += 1
+
+    empty = True
+
     while self._read().symbol == 'procedure':
-      self._procedure()
+      self._procedure(curr)
+      empty = False
       if self._read().symbol == ';':
-        self._send_alert(0, 'Procedure List - Semicolon')
-        self._get()
+        self._add(curr)
         break
 
+    if empty: Node( " empty ", parent=curr)
 
-  def _procedure(self):
+
+  def _procedure(self,curr):
+    """
+    """
+    curr = Node( str(self._count) + " : Procedure", parent=curr)
+    self._count += 1
+
     if self._read().symbol == 'procedure':
-      self._send_alert(0, "Procedure")
-      self._get()
+      self._add(curr)
+
       if self._read().kind == 'identifier':
-        self._send_alert(0, "Procedure ID")
-        self._get()
-        self._arguments()
+        self._add(curr)
+        self._arguments(curr)
         if self._read().symbol == ';':
-          self._var_declarations()
-          self._procedure_list()
-          self._composite_command()
+          self._add(curr)
+          if self._read().symbol == 'var':
+            self._var_declaration(curr)
+          self._procedure_list(curr)
+          if self._read().symbol == 'begin':
+            self._composite_command(curr)
         else:
-          self._send_alert(2, "Procedure Declaration - Missing Semicolon")
+          self._error( "Procedure Declaration - Missing Semicolon")
+
+  def _data_types(self,curr):
+
+    DATA_TYPES = ['integer', 'real', 'boolean']
+    curr = Node( str(self._count) + " : Type", parent=curr)
+    self._count += 1
+    if self._read().symbol in DATA_TYPES:
+      self._add(curr)
+    else: 
+      return self._error("Missing Type declaration")
 
 
+  def _var_declaration(self,curr):
+    """
+    """
+    curr = Node( str(self._count) + " : Var Declarations", parent=curr)
+    self._count += 1
 
-
-  def _var_declarations(self):
     if self._read().symbol == 'var':
-      self._send_alert(0, "Variable Declaration - VAR")
-      self._get() # consumir o var
-      self._identifier_list_type()
+      self._add(curr)
+      self._var_declaration_list(curr)
       while self._read().kind == 'identifier':
-        self._identifier_list_type()
+        self._var_declaration_list(curr)
 
 
-  def _identifier_list(self):
-    """ (Recursive)
+  def _var_declaration_list(self,curr):
+    """
+    """
+    curr = Node( str(self._count) + " : Var Declaration List", parent=curr)
+    self._count += 1
+
+    self._identifier_list(curr)
+    if self._read().symbol == ':':
+      self._add(curr)
+      self._data_types(curr)
+      if self._read().symbol == ';':
+        self._add(curr)
+      else: return self._error("Identifier - Missing Semicolon")
+    else: return self._error("Identifier - Missing ':' symbol")
+
+
+  def _identifier_list(self,curr):
+    """ 
     <identifier> | <identifier>,<identifier>
     """
+    curr = Node( str(self._count) + " : Identifier List", parent=curr)
+    self._count += 1
+    
     if self._read().kind == 'identifier':
-      self._send_alert(0, 'Identifier List - Identifier')
-      self._get()
+      self._add(curr)
 
       while self._read().symbol == ',':
-        self._send_alert(0, 'Identifier List - Comma')
-        self._get()
+        self._add(curr)
         if self._read().kind == 'identifier':
-          self._send_alert(0, 'Identifier List - Identifier')
-          self._get()
+          self._add(curr)
         else: 
-          return self._send_alert(2, 'Identifier List - Missing Identifier')
+          return self._error( 'Identifier List - Missing Identifier')
 
 
-  def _identifier_list_type(self):
 
-    self._identifier_list()
-    if self._get().symbol == ':':
-      if self._get().symbol in DATA_TYPES:
-        if self._get().symbol == ';':
-          self._send_alert(0, "Identifier Type - Validated")
-        else: return self._send_alert(2,"Identifier - Missing Semicolon")
-      else: return self._send_alert(2,"Identifier - Missing Type declaration")
-    else: return self._send_alert(2,"Identifier - Missing ':' symbol")
+  def _arguments(self,curr):
 
-  def _arguments(self):
+    curr = Node( str(self._count) + " : (Arguments)", parent=curr)
+    self._count += 1
+
     if self._read().symbol == '(':
-      self._send_alert(0, 'Arguments - OPENED')
-      self._get()
-      self._parameter_list()
+      self._add(curr)
+      self._parameter_list(curr)
       if self._read().symbol == ')':
-        self._send_alert(0, 'Arguments - CLOSED')
-        self._get()
+        self._add(curr)
       else:
-        return self._send_alert(2, 'Missing ")" on Procedure Arguments')
+        return self._error( 'Missing ")" on Procedure Arguments')
       
 
-  def _parameter_list(self):
-    self._parameter_list_type()
+  def _parameter_list(self,curr):
+ 
+    curr = Node( str(self._count) + " : Parameter List", parent=curr)
+    self._count += 1
+    
+    self._parameter_list_type(curr)
     while self._read().symbol == ';':
-      self._send_alert(0, "Parameter List Semicolon ; ")
-      self._get()
-      self._parameter_list_type()
+      self._add(curr)
+      self._parameter_list_type(curr)
 
 
-  def _parameter_list_type(self):
+  def _parameter_list_type(self,curr):
     """
     """
-    self._identifier_list()
+    curr = Node( str(self._count) + " : Parameter List Type", parent=curr)
+    self._count += 1
+
+    self._identifier_list(curr)
     if self._read().symbol == ':':
-      self._get()
-      if self._read().symbol in DATA_TYPES:
-        self._get()
-        self._send_alert(0, "Parameter Type - Validated")
-      else: return self._send_alert(2,"Parameter - Missing Type declaration")
-    else: return self._send_alert(2,"Parameter - Missing ':' symbol")
+      self._add(curr)
+      self._data_types(curr)
+    else: return self._error("Parameter - Missing ':' symbol")
 
 
-  def _composite_command(self):
+  def _composite_command(self,curr):
     """
     comando_composto →
     begin
@@ -163,29 +248,39 @@ class Syntax:
     lista_de_comandos
     | ε
     """
+    curr = Node( str(self._count) + " : Composite Command", parent=curr)
+    self._count += 1
 
     if self._read().symbol == 'begin':
-      self._send_alert(0, "Composite Command - BEGIN")
-      self._get()
-      while self._read().symbol != 'end':
-        self._command_list()
+      self._add(curr)
+      self._optional_command(curr)
+      if self._read().symbol == 'end':
+        self._add(curr)
       else:
-        self._get()
-        self._send_alert(0, "Composite Command - END")
+        self._error( "Missing END Block")
     else: 
-      self._send_alert(2, "Error: Missing Begin Statement")
+      self._error( "Error: Missing Begin Statement")
 
 
+  def _optional_command(self,curr):
+    curr = Node( str(self._count) + " : Optional Command", parent=curr)
+    self._count += 1
+    if self._read().symbol != 'end':
+      self._command_list(curr)
+    else:
+      Node("empty", parent=curr)
 
-  def _command_list(self):
-    self._command()
+  def _command_list(self,curr):
+    curr = Node( str(self._count) + " : Command List", parent=curr)
+    self._count += 1
+
+    self._command(curr)
     while self._read().symbol == ';':
-      self._send_alert(0, "Command List - ; ")
-      self._get()
-      self._command()
+      self._add(curr)
+      self._command(curr)
 
 
-  def _command(self):
+  def _command(self,curr):
     """
     comando →
     variável := expressão
@@ -195,142 +290,159 @@ class Syntax:
     | while expressão do comando
     """
     temp = self._read()
+    curr = Node( str(self._count) + " : Command", parent=curr)
+    self._count += 1
 
     #VARIABLE : EXPRESSION / PROCEDURE ACTIVATION 
 
     if temp.kind == 'identifier':
-      self._get()
+      self._add(curr)
       if self._read().kind == 'attribution':
-        self._send_alert(0, 'Variable := Expression')
-        self._get()
-        self._expression()
+        self._add(curr)
+        self._expression(curr)
       elif self._read().symbol == '(':
-        self._send_alert(0, 'Procedure Activation (Expression List) - OPENED')
-        self._get()
-        self._expression_list()
+        self._add(curr)
+        self._expression_list(curr)
         if self._read().symbol == ')':
-          self._send_alert(0, 'Procedure Activation (Expression List) - CLOSED')
-          self._get()
+          self._add(curr)
         else:
-          return self._send_alert(2, 'Missing ")" on Procedure Activation')
-      else:
-        self._send_alert(0, "Procedure Activation - Simple")
+          return self._error( 'Missing ")" on Procedure Activation')
+
 
     elif temp.symbol == "if":
-      self._send_alert(0, "Command - IF")
-      self._get() 
-      self._expression()
+      self._add(curr)
+      self._expression(curr)
       if self._read().symbol == "then":
-        self._send_alert(0, "Command - THEN")
-        self._get()
-        self._command()
+        self._add(curr)
+        self._command(curr)
         # Parte Else
-        while self._read().symbol == "else":
-          self._send_alert(0, "Command - ELSE")
-          self._get()
-          self._command()
+        self._else_part(curr)
+        
       else:
-        return self._send_alert(2, "Missing 'THEN' reserved word")
+        return self._error( "Missing 'THEN' reserved word")
     elif temp.symbol == "while":
-      self._send_alert(0, 'Command - WHILE')
-      self._get()
-      self._expression()
+      self._add(curr)
+      self._expression(curr)
       if self._read().symbol == 'do':
-        self._send_alert(0, 'Command - DO')
-        self._get()
-        self._command()
+        self._add(curr)
+        self._command(curr)
       else:
-        return self._send_alert(2, 'Missing "DO" reserved word')
+        return self._error( 'Missing "DO" reserved word')
 
     elif temp.symbol == 'begin':
-      self._send_alert(0, "Command -> Composite Command")
-      self._composite_command()
+      self._composite_command(curr)
+
+    else:
+      return self._error("Broken Command")
 
 
-  def _expression_list(self):
+  def _else_part(self, curr):
+    curr = Node( str(self._count) + 'Else Part', parent=curr)
+    self._count += 1
+    
+    while self._read().symbol == "else":
+      self._add(curr)
+      self._command(curr)
+      
 
-    self._expression()
+  def _expression_list(self,curr):
+
+    curr = Node( str(self._count) + 'Expression List', parent=curr)
+    self._count += 1
+
+    self._expression(curr)
 
     while self._read().symbol == ',': 
-      self._send_alert(0, "Comma")
-      self._get(); self._expression()   
+      self._add(curr)
+      self._expression(curr)   
 
 
-  def _expression(self):
+  def _expression(self,curr):
     """
     """
-    self._simple_expression()
+    curr = Node( str(self._count) + ': Expression', parent=curr)
+    self._count += 1
+
+    self._simple_expression(curr)
 
     while self._read().kind == 'relation': 
-      self._get(); self._simple_expression()   
+      self._add(curr)
+      self._simple_expression(curr)   
 
 
-  def _simple_expression(self):
+  def _simple_expression(self,curr):
     """
     <simple_ex> -> <termo> <simple_ex'> | <signal> <termo>
     <simple_ex'> -> <addition> <termo> <simple_ex'>
     """
+
+    curr = Node( str(self._count) + ': Simple Expression', parent=curr)
+    self._count += 1
     # primeiro sinal (caso exista) e termo
     if self._read().symbol in ['+','-']:
-      self._get(); self._term()
+      self._add(curr)
+      self._term(curr)
     else: 
-      self._term()
+      self._term(curr)
 
     # enquanto aparecer adição, loopar em busca de termos    
     while self._read().kind == 'addition':
-      self._send_alert(0, "Addition")
-      self._get(); self._term()
+      self._add(curr) 
+      self._term(curr)
 
 
-  def _term(self):
+  def _term(self,curr):
     """ 
     <termo> -> <fator> <termo'> |
     <termo'> -> <op_mult> <fator> <termo'>
     | ϵ
     """
-    self._factor()
+
+    curr = Node( str(self._count) + ': Term', parent=curr)
+    self._count += 1
+
+    self._factor(curr)
 
     while self._read().kind == 'multiplication': 
-      self._send_alert(0, "Multiplication")
-      self._get(); self._factor()
+      self._add(curr) 
+      self._factor(curr)
     
 
-  def _factor(self):
+  def _factor(self,curr):
     """ (Factor)
     """
+
+    curr = Node( str(self._count) + ': Factor', parent=curr)
+    self._count += 1
+
+
     factor = self._read()
     if factor.kind in ['integer','real','boolean']:
-      self._get()
-      return self._send_alert(0, 'Factor - Number/Bool - Ok!')
+      self._add(curr)
     elif factor.kind == 'identifier': 
-      self._get()
+      self._add(curr)
       if self._read().symbol == '(':
-        self._send_alert(0, "id(Expression) Opened")
-        self._get()
-        self._expression_list()
+        self._add(curr)
+        self._expression_list(curr)
         #TO-DO LIST OF EXPRESSION
         if self._read().symbol == ')':
-          self._get()
-          self._send_alert(0, "id(Expression) Closed")
+          self._add(curr)
         else: 
-          return self._send_alert(2, "Unclosed Expression - Missing ')'")
-      else:
-        #VALIDADO IDENTIFICADOR
-        self._send_alert(0, "Factor -  Identifier - Ok!")
+          return self._error( "Unclosed Expression - Missing ')'")
     elif factor.symbol == 'not':
-      self._get()
-      self._send_alert(0, "NOT")
-      self._factor()
+      self._add(curr)
+      self._factor(curr)
     elif factor.symbol == '(':
-      self._send_alert(0, "(Expression) Opened")
-      self._get(); self._expression()
+      self._add(curr)
+      self._expression(curr)
       if self._read().symbol == ')':
-        self._get()
-        self._send_alert(0, "(Expression) Closed")
+        self._add(curr)
       else:
-        return self._send_alert(2, 'Unclosed Expression - Missing ")" ')
+        return self._error( 'Unclosed Expression - Missing ")" ')
+    elif factor.symbol == 'begin':
+      self._composite_command(curr)
     else:
-      self._send_alert(2,"Missing Factor")
+      self._error("Missing Factor")
     
 
 
