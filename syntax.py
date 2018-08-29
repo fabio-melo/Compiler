@@ -5,6 +5,14 @@ from anytree.exporter import DotExporter
 
 import sys
 
+def trace(func):
+  def wrapper(*args, **kwargs):
+    print(f'TRACE: calling {func.__name__}() ')
+    #f'with {args}, {kwargs}')
+    original_result = func(*args, **kwargs)
+    #print(f'TRACE: {func.__name__}() ' f'returned {original_result!r}')
+    return original_result
+  return wrapper
 
 
 class Syntax:
@@ -63,7 +71,7 @@ class Syntax:
 
     self._program(self._tree)
     #print(RenderTree(self._tree))
-
+  @trace
   def _program(self, curr):
     '''
     Programa. 
@@ -83,7 +91,7 @@ class Syntax:
 
           if self._read().symbol == 'var':
             self._var_declaration(curr)
-          self._procedure_list(curr)
+          self._subprogram_declaration_list(curr)
 
           if self._read().symbol == 'begin':
             self._composite_command(curr)
@@ -100,29 +108,40 @@ class Syntax:
       else: return self._error("Program Definition - Missing Identifier")
     else: return self._error("Program Definition - Missing Reserved Word")
 
-
-  def _procedure_list(self,curr):
+  @trace
+  def _subprogram_declaration_list(self,curr):
     """
     """
-    curr = Node( str(self._count) + " : Procedure List", parent=curr)
+    curr = Node( str(self._count) + " : Subprogram Declaration List", parent=curr)
     self._count += 1
 
-    empty = True
 
-    while self._read().symbol == 'procedure':
-      self._procedure(curr)
-      empty = False
-      if self._read().symbol == ';':
-        self._add(curr)
-        break
-
-    if empty: Node( " empty ", parent=curr)
+    if self._read().symbol == 'procedure':
+      self._subprogram_declaration_line(curr)
+    else:
+      Node( '[' + str(self._count) + '] empty', parent=curr)
 
 
-  def _procedure(self,curr):
+  @trace
+  def _subprogram_declaration_line(self,curr):
     """
     """
-    curr = Node( str(self._count) + " : Procedure", parent=curr)
+    curr = Node( str(self._count) + " : Subprogram Declaration ", parent=curr)
+    self._count += 1
+
+    self._subprogram_declaration(curr)
+
+    if self._read().symbol == ';':
+      self._add(curr)
+      self._subprogram_declaration_list(curr)
+    else:
+      self._error("Subprogram Declaration - Missing Semicolon")
+
+
+  @trace
+  def _subprogram_declaration(self,curr):
+
+    curr = Node( str(self._count) + " : Subprogram Declaration", parent=curr)
     self._count += 1
 
     if self._read().symbol == 'procedure':
@@ -135,12 +154,14 @@ class Syntax:
           self._add(curr)
           if self._read().symbol == 'var':
             self._var_declaration(curr)
-          self._procedure_list(curr)
+          self._subprogram_declaration_list(curr)
           if self._read().symbol == 'begin':
             self._composite_command(curr)
         else:
           self._error( "Procedure Declaration - Missing Semicolon")
-
+      else:
+          self._error("Missing Procedure Identifier")
+  @trace
   def _data_types(self,curr):
 
     DATA_TYPES = ['integer', 'real', 'boolean']
@@ -151,7 +172,7 @@ class Syntax:
     else: 
       return self._error("Missing Type declaration")
 
-
+  @trace
   def _var_declaration(self,curr):
     """
     """
@@ -161,10 +182,11 @@ class Syntax:
     if self._read().symbol == 'var':
       self._add(curr)
       self._var_declaration_list(curr)
-      while self._read().kind == 'identifier':
-        self._var_declaration_list(curr)
+    else:
+      Node( '[' + str(self._count) + '] empty', parent=curr)
 
 
+  @trace
   def _var_declaration_list(self,curr):
     """
     """
@@ -173,33 +195,34 @@ class Syntax:
 
     self._identifier_list(curr)
     if self._read().symbol == ':':
-      self._add(curr)
+      self._add(curr) 
       self._data_types(curr)
       if self._read().symbol == ';':
         self._add(curr)
+        if self._read().kind == 'identifier':
+          self._var_declaration_list(curr)
       else: return self._error("Identifier - Missing Semicolon")
     else: return self._error("Identifier - Missing ':' symbol")
 
-
+  @trace
   def _identifier_list(self,curr):
     """ 
     <identifier> | <identifier>,<identifier>
     """
     curr = Node( str(self._count) + " : Identifier List", parent=curr)
     self._count += 1
-    
+
     if self._read().kind == 'identifier':
       self._add(curr)
+    else: 
+      return self._error( 'Identifier List - Missing Identifier')
 
-      while self._read().symbol == ',':
-        self._add(curr)
-        if self._read().kind == 'identifier':
-          self._add(curr)
-        else: 
-          return self._error( 'Identifier List - Missing Identifier')
+    if self._read().symbol == ',':
+      self._add(curr)
+      self._identifier_list(curr)
+    
 
-
-
+  @trace
   def _arguments(self,curr):
 
     curr = Node( str(self._count) + " : (Arguments)", parent=curr)
@@ -213,18 +236,25 @@ class Syntax:
       else:
         return self._error( 'Missing ")" on Procedure Arguments')
       
-
+  @trace
   def _parameter_list(self,curr):
  
     curr = Node( str(self._count) + " : Parameter List", parent=curr)
     self._count += 1
-    
-    self._parameter_list_type(curr)
-    while self._read().symbol == ';':
+
+    self._identifier_list(curr)
+
+    if self._read().symbol == ':':
       self._add(curr)
-      self._parameter_list_type(curr)
+      self._data_types(curr)
+    else: 
+      return self._error("Parameter - Missing ':' symbol")
 
+    if self._read().symbol == ';':
+      self._add(curr)
+      self._parameter_list(curr)
 
+  @trace
   def _parameter_list_type(self,curr):
     """
     """
@@ -237,7 +267,7 @@ class Syntax:
       self._data_types(curr)
     else: return self._error("Parameter - Missing ':' symbol")
 
-
+  @trace
   def _composite_command(self,curr):
     """
     comando_composto →
@@ -261,23 +291,24 @@ class Syntax:
     else: 
       self._error( "Error: Missing Begin Statement")
 
-
+  @trace
   def _optional_command(self,curr):
     curr = Node( str(self._count) + " : Optional Command", parent=curr)
     self._count += 1
     if self._read().symbol != 'end':
       self._command_list(curr)
     else:
-      Node("empty", parent=curr)
+      Node( '[' + str(self._count) + '] empty', parent=curr)
 
   def _command_list(self,curr):
     curr = Node( str(self._count) + " : Command List", parent=curr)
     self._count += 1
 
     self._command(curr)
-    while self._read().symbol == ';':
+
+    if self._read().symbol == ';':
       self._add(curr)
-      self._command(curr)
+      self._command_list(curr)
 
 
   def _command(self,curr):
@@ -340,9 +371,12 @@ class Syntax:
     curr = Node( str(self._count) + 'Else Part', parent=curr)
     self._count += 1
     
-    while self._read().symbol == "else":
+    if self._read().symbol == "else":
       self._add(curr)
       self._command(curr)
+      self._else_part(curr)
+    else:
+      Node( '[' + str(self._count) + '] empty', parent=curr)
       
 
   def _expression_list(self,curr):
@@ -352,9 +386,9 @@ class Syntax:
 
     self._expression(curr)
 
-    while self._read().symbol == ',': 
+    if self._read().symbol == ',': 
       self._add(curr)
-      self._expression(curr)   
+      self._expression_list(curr)   
 
 
   def _expression(self,curr):
@@ -365,9 +399,18 @@ class Syntax:
 
     self._simple_expression(curr)
 
-    while self._read().kind == 'relation': 
+    if self._read().kind == 'relation': 
+      self._op_relation(curr)
+      self._expression(curr)   
+
+
+  def _op_relation(self,curr):
+
+    curr = Node( str(self._count) + ': Relational Operator', parent=curr)
+    self._count += 1
+
+    if self._read().kind == 'relation':
       self._add(curr)
-      self._simple_expression(curr)   
 
 
   def _simple_expression(self,curr):
@@ -380,15 +423,38 @@ class Syntax:
     self._count += 1
     # primeiro sinal (caso exista) e termo
     if self._read().symbol in ['+','-']:
-      self._add(curr)
+      self._signal(curr)
       self._term(curr)
     else: 
       self._term(curr)
 
     # enquanto aparecer adição, loopar em busca de termos    
-    while self._read().kind == 'addition':
-      self._add(curr) 
-      self._term(curr)
+    if self._read().kind == 'addition':
+      self._op_addition(curr)
+      self._simple_expression(curr)
+
+  def _signal(self,curr):
+
+    curr = Node( str(self._count) + ': Signal', parent=curr)
+    self._count += 1
+    if self._read().symbol in ['+','-']:
+      self._add(curr)
+
+
+  def _op_addition(self,curr):
+
+    curr = Node( str(self._count) + ': Additive Operator', parent=curr)
+    self._count += 1
+    if self._read().kind == 'addition':
+      self._add(curr)
+
+
+  def _op_multiplication(self,curr):
+
+    curr = Node( str(self._count) + ': Multiplicative Operator', parent=curr)
+    self._count += 1
+    if self._read().kind == 'multiplication':
+      self._add(curr)
 
 
   def _term(self,curr):
@@ -403,9 +469,9 @@ class Syntax:
 
     self._factor(curr)
 
-    while self._read().kind == 'multiplication': 
-      self._add(curr) 
-      self._factor(curr)
+    if self._read().kind == 'multiplication': 
+      self._op_multiplication(curr)
+      self._term(curr)
     
 
   def _factor(self,curr):
