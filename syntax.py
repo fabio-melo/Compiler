@@ -1,4 +1,4 @@
-from utils import Token
+from lexer import Token
 from anytree import Node, RenderTree
 from anytree.exporter import DotExporter
 from collections import deque
