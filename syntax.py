@@ -1,27 +1,34 @@
 from utils import Token
-from alert import alert
 from anytree import Node, RenderTree
 from anytree.exporter import DotExporter
+from collections import deque
 
 import sys
 
 def trace(func):
-  def wrapper(*args, **kwargs):
-    print(f'TRACE: calling {func.__name__}() ')
-    #f'with {args}, {kwargs}')
-    original_result = func(*args, **kwargs)
+  def wrapper(self, *args, **kwargs):
+    self._current_level += 1
+    if self._debug: print(f'Trace: ({self._read().id_}) {self._read().symbol} -> {func.__name__} {self._current_level}')
+    # \n'f'-> {args[1]}')
+    original_result = func(self,*args, **kwargs)
+    self._current_level -= 1
+    #print(f'SYN: ({self._read().id_}) {self._read().symbol} -> (Return) {func.__name__} {self._current_level}')
     #print(f'TRACE: {func.__name__}() ' f'returned {original_result!r}')
     return original_result
   return wrapper
 
 
 class Syntax:
-  def __init__(self, tokens, debug=True):
-    self.tokens = tokens
-    self._debug = ['Syntax', debug]
+  def __init__(self, tokens, debug=False):
+    self.tokens = deque(tokens)
+    self._debug = debug
     self._current_line = 0
     self._tree = Node('Start')
     self._count = 100
+    self._current_level = 0
+
+  def __repr__(self):
+    return "Syntax Object"
 
   def export_to_file(self,file_):
     self.start()
@@ -34,7 +41,7 @@ class Syntax:
     Retorna e apaga o token da lista
     """
     if self.tokens:
-      symbol = self.tokens.pop(0)
+      symbol = self.tokens.popleft()
       self._current_line = symbol.line
       return symbol
     else:
@@ -56,10 +63,12 @@ class Syntax:
     tok = self._get()
     return Node(str("("+ str(tok.id_) + ") " + tok.symbol), parent=curr)
 
+
   def _error(self, alert_msg):
     ERRORMSG = '[Syntax] ERROR: Line ' + str(self._current_line) + ':  ' + alert_msg
     print(ERRORMSG)
     return sys.exit()
+
 
   def start(self):
     """
@@ -71,6 +80,8 @@ class Syntax:
 
     self._program(self._tree)
     #print(RenderTree(self._tree))
+
+
   @trace
   def _program(self, curr):
     '''
@@ -89,8 +100,7 @@ class Syntax:
         if self._read().symbol == ';':
           self._add(curr)
 
-          if self._read().symbol == 'var':
-            self._var_declaration(curr)
+          self._var_declaration(curr)
           self._subprogram_declaration_list(curr)
 
           if self._read().symbol == 'begin':
@@ -103,10 +113,11 @@ class Syntax:
             else:
               print("IT WORKS - Código Verificado")
           else: 
-            self._error("Missing Program '.' ending dot")
+            self._error("(maybe) missing Program '.' ending dot")
         else: return self._error("Program Definition - Missing Semicolon")
       else: return self._error("Program Definition - Missing Identifier")
     else: return self._error("Program Definition - Missing Reserved Word")
+
 
   @trace
   def _subprogram_declaration_list(self,curr):
@@ -161,6 +172,8 @@ class Syntax:
           self._error( "Procedure Declaration - Missing Semicolon")
       else:
           self._error("Missing Procedure Identifier")
+
+
   @trace
   def _data_types(self,curr):
 
@@ -171,6 +184,7 @@ class Syntax:
       self._add(curr)
     else: 
       return self._error("Missing Type declaration")
+
 
   @trace
   def _var_declaration(self,curr):
@@ -204,6 +218,7 @@ class Syntax:
       else: return self._error("Identifier - Missing Semicolon")
     else: return self._error("Identifier - Missing ':' symbol")
 
+
   @trace
   def _identifier_list(self,curr):
     """ 
@@ -235,7 +250,8 @@ class Syntax:
         self._add(curr)
       else:
         return self._error( 'Missing ")" on Procedure Arguments')
-      
+
+
   @trace
   def _parameter_list(self,curr):
  
@@ -254,6 +270,7 @@ class Syntax:
       self._add(curr)
       self._parameter_list(curr)
 
+
   @trace
   def _parameter_list_type(self,curr):
     """
@@ -266,6 +283,7 @@ class Syntax:
       self._add(curr)
       self._data_types(curr)
     else: return self._error("Parameter - Missing ':' symbol")
+
 
   @trace
   def _composite_command(self,curr):
@@ -291,6 +309,7 @@ class Syntax:
     else: 
       self._error( "Error: Missing Begin Statement")
 
+
   @trace
   def _optional_command(self,curr):
     curr = Node( str(self._count) + " : Optional Command", parent=curr)
@@ -300,6 +319,8 @@ class Syntax:
     else:
       Node( '[' + str(self._count) + '] empty', parent=curr)
 
+
+  @trace
   def _command_list(self,curr):
     curr = Node( str(self._count) + " : Command List", parent=curr)
     self._count += 1
@@ -311,6 +332,7 @@ class Syntax:
       self._command_list(curr)
 
 
+  @trace
   def _command(self,curr):
     """
     comando →
@@ -367,6 +389,7 @@ class Syntax:
       return self._error("Broken Command")
 
 
+  @trace
   def _else_part(self, curr):
     curr = Node( str(self._count) + 'Else Part', parent=curr)
     self._count += 1
@@ -377,8 +400,9 @@ class Syntax:
       self._else_part(curr)
     else:
       Node( '[' + str(self._count) + '] empty', parent=curr)
-      
 
+
+  @trace
   def _expression_list(self,curr):
 
     curr = Node( str(self._count) + 'Expression List', parent=curr)
@@ -391,6 +415,7 @@ class Syntax:
       self._expression_list(curr)   
 
 
+  @trace
   def _expression(self,curr):
     """
     """
@@ -404,6 +429,7 @@ class Syntax:
       self._expression(curr)   
 
 
+  @trace
   def _op_relation(self,curr):
 
     curr = Node( str(self._count) + ': Relational Operator', parent=curr)
@@ -413,6 +439,7 @@ class Syntax:
       self._add(curr)
 
 
+  @trace
   def _simple_expression(self,curr):
     """
     <simple_ex> -> <termo> <simple_ex'> | <signal> <termo>
@@ -433,6 +460,8 @@ class Syntax:
       self._op_addition(curr)
       self._simple_expression(curr)
 
+
+  @trace
   def _signal(self,curr):
 
     curr = Node( str(self._count) + ': Signal', parent=curr)
@@ -441,6 +470,7 @@ class Syntax:
       self._add(curr)
 
 
+  @trace
   def _op_addition(self,curr):
 
     curr = Node( str(self._count) + ': Additive Operator', parent=curr)
@@ -449,6 +479,7 @@ class Syntax:
       self._add(curr)
 
 
+  @trace
   def _op_multiplication(self,curr):
 
     curr = Node( str(self._count) + ': Multiplicative Operator', parent=curr)
@@ -457,6 +488,7 @@ class Syntax:
       self._add(curr)
 
 
+  @trace
   def _term(self,curr):
     """ 
     <termo> -> <fator> <termo'> |
@@ -472,8 +504,9 @@ class Syntax:
     if self._read().kind == 'multiplication': 
       self._op_multiplication(curr)
       self._term(curr)
-    
 
+
+  @trace
   def _factor(self,curr):
     """ (Factor)
     """
@@ -509,7 +542,6 @@ class Syntax:
       self._composite_command(curr)
     else:
       self._error("Missing Factor")
-    
 
 
         

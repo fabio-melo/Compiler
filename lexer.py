@@ -1,6 +1,7 @@
 import re #biblioteca de expressões regulares
 from utils import Token
 from alert import alert
+from collections import deque
 
 class Lexer:
   def __init__(self, program, debug=False):
@@ -8,7 +9,7 @@ class Lexer:
     self._current_symbol = []
     self._current_line = 1
     self._current_id = 0
-    self._queue = program
+    self._queue = deque(program)
     self._debug = ['Lexer', debug]
     self._errors = []
 
@@ -21,10 +22,10 @@ class Lexer:
       if not self._queue: 
         return False
       elif re.match(r'[\t\r\f\040]', self._queue[0]): 
-        self._queue.pop(0)
+        self._queue.popleft()
       elif re.match(r'[\n]',self._queue[0]): 
         self._current_line += 1
-        self._queue.pop(0)
+        self._queue.popleft()
       else: 
         return self._queue[0]
 
@@ -42,7 +43,7 @@ class Lexer:
 
 
   def _consume_char(self): 
-    if self._queue: self._current_symbol.append(self._queue.pop(0))
+    if self._queue: self._current_symbol.append(self._queue.popleft())
 
 
   def _start(self):
@@ -143,13 +144,13 @@ class Lexer:
         self._send_alert('unclosed_comment',line=_line)
         return False
       elif re.match(r'[\}]', self._queue[0]): 
-        self._queue.pop(0)
+        self._queue.popleft()
         break
       elif re.match(r'[\n]',self._queue[0]): 
         self._current_line += 1
-        self._queue.pop(0)    
+        self._queue.popleft()    
       else: 
-        self._queue.pop(0)                
+        self._queue.popleft()                
 
 
   def _line_comment(self):
@@ -158,10 +159,10 @@ class Lexer:
         return False
       elif re.match(r'[\n]',self._queue[0]): 
         self._current_line += 1
-        self._queue.pop(0)
+        self._queue.popleft()
         break    
       else: 
-        self._queue.pop(0)  
+        self._queue.popleft()  
 
   def _invalid(self):
     self._consume_char()
@@ -203,8 +204,9 @@ class Lexer:
       alert(self._debug,1, ERRORMSG)
 
     print('\n\n[Lexer] ----- SYMBOL TABLE -----')
+    print("{:<5} {:<8} {:<20} {:<15} ".format("Line", 'Id', 'Symbol','Kind'))
     for x in self.tokens:
-      print("{:<8} {:<15} {:<10}".format(x.line, x.symbol, x.kind))
+      print("{:<5} {:<8} {:<20} {:<15} ".format(x.line, x.id_, x.symbol, x.kind))
     
 
 
