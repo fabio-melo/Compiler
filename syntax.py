@@ -84,69 +84,49 @@ class Syntax:
 
   @trace
   def _program(self, curr):
-    '''
-    Programa. 
-    recebe o nó atual.
-    '''
+
     curr = Node(str(self._count) + ' Program', parent=curr)
     self._count += 1
 
-    if self._read().symbol == 'program':
-      self._add(curr)
+    # PROGRAM ID ;
+    if self._read().symbol == 'program': self._add(curr)
+    else: self._error("Program: Missing 'Program' Reserved Word")
 
-      if self._read().kind == 'identifier':
-        self._add(curr)
+    if self._read().kind == 'identifier': self._add(curr)
+    else: self._error("Program: Missing Program Identifier") 
+    
+    if self._read().symbol == ';': self._add(curr)
+    else: self._error("Program: Missing Semicolon")
 
-        if self._read().symbol == ';':
-          self._add(curr)
+    # Other Functions
+    self._var_declaration(curr)
+    self._subprogram_declaration_list(curr)
+    self._composite_command(curr)
+    
+    # Ending Dot
+    if self._read().symbol == '.': self._add(curr)
+    else: self._error("Program: Missing Ending Dot")
 
-          self._var_declaration(curr)
-          self._subprogram_declaration_list(curr)
-
-          if self._read().symbol == 'begin':
-            self._composite_command(curr)
-          if self._read().symbol == '.':
-            self._add(curr)
-
-            if self._read().symbol is not False:
-              self._error("Program - Tokens after Ending Dot")
-            else:
-              print("IT WORKS - Código Verificado")
-          else: 
-            self._error("(maybe) missing Program '.' ending dot")
-        else: return self._error("Program Definition - Missing Semicolon")
-      else: return self._error("Program Definition - Missing Identifier")
-    else: return self._error("Program Definition - Missing Reserved Word")
-
-
+    # Check if ended
+    if not self._read().symbol: print("IT WORKS - Código Verificado")
+    else: self._error("Program: Tokens after Ending Dot")
+ 
   @trace
   def _subprogram_declaration_list(self,curr):
-    """
-    """
+ 
     curr = Node( str(self._count) + " : Subprogram Declaration List", parent=curr)
     self._count += 1
 
 
     if self._read().symbol == 'procedure':
-      self._subprogram_declaration_line(curr)
+      self._subprogram_declaration(curr)
+      if self._read().symbol == ';':
+        self._add(curr)
+        self._subprogram_declaration_list(curr)
+      else:
+        self._error("Subprogram Declaration - Missing Semicolon")
     else:
       Node( '[' + str(self._count) + '] empty', parent=curr)
-
-
-  @trace
-  def _subprogram_declaration_line(self,curr):
-    """
-    """
-    curr = Node( str(self._count) + " : Subprogram Declaration ", parent=curr)
-    self._count += 1
-
-    self._subprogram_declaration(curr)
-
-    if self._read().symbol == ';':
-      self._add(curr)
-      self._subprogram_declaration_list(curr)
-    else:
-      self._error("Subprogram Declaration - Missing Semicolon")
 
 
   @trace
@@ -163,11 +143,9 @@ class Syntax:
         self._arguments(curr)
         if self._read().symbol == ';':
           self._add(curr)
-          if self._read().symbol == 'var':
-            self._var_declaration(curr)
+          self._var_declaration(curr)
           self._subprogram_declaration_list(curr)
-          if self._read().symbol == 'begin':
-            self._composite_command(curr)
+          self._composite_command(curr)
         else:
           self._error( "Procedure Declaration - Missing Semicolon")
       else:
@@ -272,43 +250,20 @@ class Syntax:
 
 
   @trace
-  def _parameter_list_type(self,curr):
-    """
-    """
-    curr = Node( str(self._count) + " : Parameter List Type", parent=curr)
-    self._count += 1
-
-    self._identifier_list(curr)
-    if self._read().symbol == ':':
-      self._add(curr)
-      self._data_types(curr)
-    else: return self._error("Parameter - Missing ':' symbol")
-
-
-  @trace
   def _composite_command(self,curr):
-    """
-    comando_composto →
-    begin
-    comandos_opcionais
-    end
-    comandos_opcionais →
-    lista_de_comandos
-    | ε
-    """
+    # begin <optional_command> end
+
     curr = Node( str(self._count) + " : Composite Command", parent=curr)
     self._count += 1
 
-    if self._read().symbol == 'begin':
-      self._add(curr)
-      self._optional_command(curr)
-      if self._read().symbol == 'end':
-        self._add(curr)
-      else:
-        self._error( "Missing END Block")
-    else: 
-      self._error( "Error: Missing Begin Statement")
+    if self._read().symbol == 'begin': self._add(curr)
+    else: self._error( "Error: Missing Begin Statement")
 
+    self._optional_command(curr)
+      
+    if self._read().symbol == 'end': self._add(curr)
+    else: self._error( "Missing END Block")
+      
 
   @trace
   def _optional_command(self,curr):
@@ -538,8 +493,6 @@ class Syntax:
         self._add(curr)
       else:
         return self._error( 'Unclosed Expression - Missing ")" ')
-    elif factor.symbol == 'begin':
-      self._composite_command(curr)
     else:
       self._error("Missing Factor")
 

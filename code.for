@@ -1,18 +1,25 @@
 program world_domination; {programa exemplo}
 var
-warheads, missiles, nukes: integer;
-amount_of_awesome: real;
-is_destroyed: boolean;
+a,b,c: integer;
 
-procedure star_wars(earth_flatness: real);
+procedure nice;
+    var thing: integer;
+    
+    procedure day;
+        var one: boolean;
+        begin
+        doing := stuff
+        end
+    ;
+
+    begin
+    if x < -y then z := 10 else day
+    end
+;
+procedure awesome;
+    begin
+    end
+    ;
 begin
-if x_axis > -y_axis then x_axis := 10.394 
-    else if y_axis = -5 then z_axis := delta + 2 * 3 
-            else total_doom(skynet(activate), i+1); x := nope
-end
-begin
-while True 
-    do nothing(like);
-    besides := something
 end
 .

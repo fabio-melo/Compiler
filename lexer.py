@@ -1,17 +1,36 @@
-import re #biblioteca de expressões regulares
-from utils import Token
-from alert import alert
+import re, sys
 from collections import deque
 
+
+class Token:
+  def __init__(self, symbol, kind, line, id_):
+    self.symbol = symbol
+    self.kind = kind
+    self.line = line
+    self.id_ = id_
+
+  def print_token(self):
+    print(str(self.line) + ' ' + str(self.kind) + ' ' + str(self.symbol))
+
+
 class Lexer:
-  def __init__(self, program, debug=False):
+  def __init__(self, program_file, debug=False):
     self.tokens = []
     self._current_symbol = []
     self._current_line = 1
     self._current_id = 0
-    self._queue = deque(program)
+    self._queue = deque(self._load(program_file))
     self._debug = ['Lexer', debug]
     self._errors = []
+
+
+  def _load(self, program_file):
+    with open(program_file,'r') as pr: # assegurar que o arquivo irá ser fechado
+      program = pr.read()
+    listified_program = []
+    for p in program: listified_program.append(p)
+    return listified_program
+
 
   def _fetch_next_char(self): 
     return self._queue[0] if self._queue else False
@@ -34,12 +53,17 @@ class Lexer:
     if alert_code == 'unclosed_comment':
       self._errors.append([line, 'unclosed_comment'])
       ERRORMSG = 'Unclosed comment on line ' + str(line)
-      alert(self._debug, 2, ERRORMSG)
+      print("[Syntax] ERROR:" + ERRORMSG)
+      sys.exit()
+      return False
     elif alert_code == 'invalid':
       self._errors.append([self._current_line, 'invalid'])
       ERRORMSG = 'Invalid symbol \"' + str(''.join(self._current_symbol)) \
             + '\" on line ' + str(self._current_line)
-      alert(self._debug, 2, ERRORMSG)
+      print("[Syntax] ERROR:" + ERRORMSG)
+      sys.exit()
+      return False
+
 
 
   def _consume_char(self): 
@@ -180,9 +204,9 @@ class Lexer:
       if code == 'identifier':
         if temp in RESERVED_WORDS:
           self.tokens.append(Token(temp, 'reserved', self._current_line,self._current_id))
-        elif temp in 'and':
+        elif temp == 'and':
           self.tokens.append(Token(temp, 'multiplication', self._current_line, self._current_id))
-        elif temp in 'or':
+        elif temp == 'or':
           self.tokens.append(Token(temp, 'addition', self._current_line,self._current_id))
         elif temp in ['true','false']:
           self.tokens.append(Token(temp, 'boolean', self._current_line,self._current_id))
@@ -200,8 +224,9 @@ class Lexer:
 
   def _print_tokens(self):
     if self._errors:
-      ERRORMSG = str(len(self._errors)) + " Errors were Found!, cannot continue"
-      alert(self._debug,1, ERRORMSG)
+      ERRORMSG = str(len(self._errors)) + " Lexical Errors were Found!, cannot continue"
+      print("[Syntax] ERROR:" + ERRORMSG)
+      sys.exit()
 
     print('\n\n[Lexer] ----- SYMBOL TABLE -----')
     print("{:<5} {:<8} {:<20} {:<15} ".format("Line", 'Id', 'Symbol','Kind'))
