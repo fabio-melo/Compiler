@@ -1,7 +1,8 @@
-from lexer import Token
 from anytree import Node, RenderTree
 from anytree.exporter import DotExporter
 from collections import deque
+from lexer import Token
+from semantic import Semantic
 
 import sys
 
@@ -18,13 +19,14 @@ def trace(func):
   return wrapper
 
 
-class Syntax:
+class Syntax(Semantic):
   def __init__(self, tokens, debug=False):
+    super().__init__()
     self.tokens = deque(tokens)
     self._debug = debug
     self._current_line = 0
     self._tree = Node('Start')
-    self._count = 100
+    self._count = 99
     self._current_level = 0
 
   def __repr__(self):
@@ -59,9 +61,13 @@ class Syntax:
       return Token(False,False,False,False)
 
 
-  def _add(self,curr):
+  def _leaf(self,curr):
     tok = self._get()
     return Node(str("("+ str(tok.id_) + ") " + tok.symbol), parent=curr)
+
+  def _node(self, curr, msg):
+    self._count += 1
+    return Node(str(self._count) + ': ' + msg , parent=curr)
 
 
   def _error(self, alert_msg):
@@ -85,17 +91,19 @@ class Syntax:
   @trace
   def _program(self, curr):
 
-    curr = Node(str(self._count) + ' Program', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Program')
+
 
     # PROGRAM ID ;
-    if self._read().symbol == 'program': self._add(curr)
+    if self._read().symbol == 'program': self._leaf(curr)
     else: self._error("Program: Missing 'Program' Reserved Word")
 
-    if self._read().kind == 'identifier': self._add(curr)
+    if self._read().kind == 'identifier': 
+      self.add_procedure(self._read().symbol)
+      self._leaf(curr)
     else: self._error("Program: Missing Program Identifier") 
     
-    if self._read().symbol == ';': self._add(curr)
+    if self._read().symbol == ';': self._leaf(curr)
     else: self._error("Program: Missing Semicolon")
 
     # Other Functions
@@ -104,7 +112,7 @@ class Syntax:
     self._composite_command(curr)
     
     # Ending Dot
-    if self._read().symbol == '.': self._add(curr)
+    if self._read().symbol == '.': self._leaf(curr)
     else: self._error("Program: Missing Ending Dot")
 
     # Check if ended
@@ -114,14 +122,13 @@ class Syntax:
   @trace
   def _subprogram_declaration_list(self,curr):
  
-    curr = Node( str(self._count) + " : Subprogram Declaration List", parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Subprogram Declaration List')
 
 
     if self._read().symbol == 'procedure':
       self._subprogram_declaration(curr)
       if self._read().symbol == ';':
-        self._add(curr)
+        self._leaf(curr)
         self._subprogram_declaration_list(curr)
       else:
         self._error("Subprogram Declaration - Missing Semicolon")
@@ -132,20 +139,23 @@ class Syntax:
   @trace
   def _subprogram_declaration(self,curr):
 
-    curr = Node( str(self._count) + " : Subprogram Declaration", parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Subprogram Declaration')
+
 
     if self._read().symbol == 'procedure':
-      self._add(curr)
+      self._leaf(curr)
 
       if self._read().kind == 'identifier':
-        self._add(curr)
+        self.add_procedure(self._read().symbol)
+        self._leaf(curr)
         self._arguments(curr)
         if self._read().symbol == ';':
-          self._add(curr)
+          self._leaf(curr)
+          self.add_scope() #escopo
           self._var_declaration(curr)
           self._subprogram_declaration_list(curr)
           self._composite_command(curr)
+          self.drop_scope() #dropa
         else:
           self._error( "Procedure Declaration - Missing Semicolon")
       else:
@@ -154,25 +164,25 @@ class Syntax:
 
   @trace
   def _data_types(self,curr):
-
+    curr = self._node(curr, 'Type')
+    
     DATA_TYPES = ['integer', 'real', 'boolean']
-    curr = Node( str(self._count) + " : Type", parent=curr)
-    self._count += 1
+
     if self._read().symbol in DATA_TYPES:
-      self._add(curr)
+      self.add_var(self._read().symbol)
+      self._leaf(curr)
     else: 
       return self._error("Missing Type declaration")
 
 
   @trace
   def _var_declaration(self,curr):
-    """
-    """
-    curr = Node( str(self._count) + " : Var Declarations", parent=curr)
-    self._count += 1
+
+    curr = self._node(curr, 'Var Declaration')
+
 
     if self._read().symbol == 'var':
-      self._add(curr)
+      self._leaf(curr)
       self._var_declaration_list(curr)
     else:
       Node( '[' + str(self._count) + '] empty', parent=curr)
@@ -182,50 +192,53 @@ class Syntax:
   def _var_declaration_list(self,curr):
     """
     """
-    curr = Node( str(self._count) + " : Var Declaration List", parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Var Declaration List')
 
     self._identifier_list(curr)
+
     if self._read().symbol == ':':
-      self._add(curr) 
+      self._leaf(curr) 
       self._data_types(curr)
-      if self._read().symbol == ';':
-        self._add(curr)
-        if self._read().kind == 'identifier':
-          self._var_declaration_list(curr)
-      else: return self._error("Identifier - Missing Semicolon")
-    else: return self._error("Identifier - Missing ':' symbol")
+    else: 
+      return self._error("Identifier - Missing ':' symbol")
+
+    if self._read().symbol == ';':
+      self._leaf(curr)
+    else: 
+      return self._error("Identifier - Missing Semicolon")
+
+    if self._read().kind == 'identifier':
+      self._var_declaration_list(curr)
 
 
   @trace
   def _identifier_list(self,curr):
-    """ 
-    <identifier> | <identifier>,<identifier>
-    """
-    curr = Node( str(self._count) + " : Identifier List", parent=curr)
-    self._count += 1
+
+    curr = self._node(curr, 'Identifier List')
+
 
     if self._read().kind == 'identifier':
-      self._add(curr)
+      self.add_word(self._read().symbol)
+      self._leaf(curr)
     else: 
       return self._error( 'Identifier List - Missing Identifier')
 
     if self._read().symbol == ',':
-      self._add(curr)
+      self._leaf(curr)
       self._identifier_list(curr)
     
 
   @trace
   def _arguments(self,curr):
 
-    curr = Node( str(self._count) + " : (Arguments)", parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Arguments')
+
 
     if self._read().symbol == '(':
-      self._add(curr)
+      self._leaf(curr)
       self._parameter_list(curr)
       if self._read().symbol == ')':
-        self._add(curr)
+        self._leaf(curr)
       else:
         return self._error( 'Missing ")" on Procedure Arguments')
 
@@ -233,19 +246,19 @@ class Syntax:
   @trace
   def _parameter_list(self,curr):
  
-    curr = Node( str(self._count) + " : Parameter List", parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Parameter List')
+
 
     self._identifier_list(curr)
 
     if self._read().symbol == ':':
-      self._add(curr)
+      self._leaf(curr)
       self._data_types(curr)
     else: 
       return self._error("Parameter - Missing ':' symbol")
 
     if self._read().symbol == ';':
-      self._add(curr)
+      self._leaf(curr)
       self._parameter_list(curr)
 
 
@@ -253,22 +266,22 @@ class Syntax:
   def _composite_command(self,curr):
     # begin <optional_command> end
 
-    curr = Node( str(self._count) + " : Composite Command", parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Composite Command')
 
-    if self._read().symbol == 'begin': self._add(curr)
-    else: self._error( "Error: Missing Begin Statement")
+
+    if self._read().symbol == 'begin': self._leaf(curr)
+    else: self._error( "Composite Command: Missing Begin Statement")
 
     self._optional_command(curr)
       
-    if self._read().symbol == 'end': self._add(curr)
-    else: self._error( "Missing END Block")
+    if self._read().symbol == 'end': self._leaf(curr)
+    else: self._error( "Composite Command: Missing END Statement")
       
 
   @trace
   def _optional_command(self,curr):
-    curr = Node( str(self._count) + " : Optional Command", parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Optional Command')
+
     if self._read().symbol != 'end':
       self._command_list(curr)
     else:
@@ -277,51 +290,46 @@ class Syntax:
 
   @trace
   def _command_list(self,curr):
-    curr = Node( str(self._count) + " : Command List", parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Command List')
+
 
     self._command(curr)
 
     if self._read().symbol == ';':
-      self._add(curr)
+      self._leaf(curr)
       self._command_list(curr)
 
 
   @trace
   def _command(self,curr):
-    """
-    comando →
-    variável := expressão
-    | ativação_de_procedimento
-    | comando_composto
-    | if expressão then comando parte_else
-    | while expressão do comando
-    """
+
+    curr = self._node(curr, 'Command')
+
     temp = self._read()
-    curr = Node( str(self._count) + " : Command", parent=curr)
-    self._count += 1
+
 
     #VARIABLE : EXPRESSION / PROCEDURE ACTIVATION 
 
     if temp.kind == 'identifier':
-      self._add(curr)
+      self.check_if_declared(temp,self._current_line)
+      self._leaf(curr)
       if self._read().kind == 'attribution':
-        self._add(curr)
+        self._leaf(curr)
         self._expression(curr)
       elif self._read().symbol == '(':
-        self._add(curr)
+        self._leaf(curr)
         self._expression_list(curr)
         if self._read().symbol == ')':
-          self._add(curr)
+          self._leaf(curr)
         else:
           return self._error( 'Missing ")" on Procedure Activation')
 
 
     elif temp.symbol == "if":
-      self._add(curr)
+      self._leaf(curr)
       self._expression(curr)
       if self._read().symbol == "then":
-        self._add(curr)
+        self._leaf(curr)
         self._command(curr)
         # Parte Else
         self._else_part(curr)
@@ -329,13 +337,30 @@ class Syntax:
       else:
         return self._error( "Missing 'THEN' reserved word")
     elif temp.symbol == "while":
-      self._add(curr)
+      self._leaf(curr)
       self._expression(curr)
       if self._read().symbol == 'do':
-        self._add(curr)
+        self._leaf(curr)
         self._command(curr)
       else:
         return self._error( 'Missing "DO" reserved word')
+
+    elif temp.symbol == 'do':
+      self._leaf(curr)
+      self._command(curr)
+      
+      if self._read().symbol == 'while':
+        self._leaf(curr)
+        if self._read().symbol == '(':
+          self._leaf(curr)
+          self._expression(curr)
+          if self._read().symbol == ')':
+            self._leaf(curr)
+          else: self._error('missing )')
+        else: self._error('missing (')
+      else: self._error('missing while')
+
+
 
     elif temp.symbol == 'begin':
       self._composite_command(curr)
@@ -346,11 +371,11 @@ class Syntax:
 
   @trace
   def _else_part(self, curr):
-    curr = Node( str(self._count) + 'Else Part', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Else Part')
+
     
     if self._read().symbol == "else":
-      self._add(curr)
+      self._leaf(curr)
       self._command(curr)
       self._else_part(curr)
     else:
@@ -360,22 +385,21 @@ class Syntax:
   @trace
   def _expression_list(self,curr):
 
-    curr = Node( str(self._count) + 'Expression List', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Expression List')
+
 
     self._expression(curr)
 
     if self._read().symbol == ',': 
-      self._add(curr)
+      self._leaf(curr)
       self._expression_list(curr)   
 
 
   @trace
   def _expression(self,curr):
-    """
-    """
-    curr = Node( str(self._count) + ': Expression', parent=curr)
-    self._count += 1
+
+    curr = self._node(curr, 'Expression')
+
 
     self._simple_expression(curr)
 
@@ -387,22 +411,18 @@ class Syntax:
   @trace
   def _op_relation(self,curr):
 
-    curr = Node( str(self._count) + ': Relational Operator', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Relation OP')
+
 
     if self._read().kind == 'relation':
-      self._add(curr)
+      self._leaf(curr)
 
 
   @trace
   def _simple_expression(self,curr):
-    """
-    <simple_ex> -> <termo> <simple_ex'> | <signal> <termo>
-    <simple_ex'> -> <addition> <termo> <simple_ex'>
-    """
 
-    curr = Node( str(self._count) + ': Simple Expression', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Simple Expression')
+
     # primeiro sinal (caso exista) e termo
     if self._read().symbol in ['+','-']:
       self._signal(curr)
@@ -419,40 +439,35 @@ class Syntax:
   @trace
   def _signal(self,curr):
 
-    curr = Node( str(self._count) + ': Signal', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Signal')
+
     if self._read().symbol in ['+','-']:
-      self._add(curr)
+      self._leaf(curr)
 
 
   @trace
   def _op_addition(self,curr):
 
-    curr = Node( str(self._count) + ': Additive Operator', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Additive OP')
+
     if self._read().kind == 'addition':
-      self._add(curr)
+      self._leaf(curr)
 
 
   @trace
   def _op_multiplication(self,curr):
 
-    curr = Node( str(self._count) + ': Multiplicative Operator', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Multiplicative OP')
+
     if self._read().kind == 'multiplication':
-      self._add(curr)
+      self._leaf(curr)
 
 
   @trace
   def _term(self,curr):
-    """ 
-    <termo> -> <fator> <termo'> |
-    <termo'> -> <op_mult> <fator> <termo'>
-    | ϵ
-    """
 
-    curr = Node( str(self._count) + ': Term', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Term')
+
 
     self._factor(curr)
 
@@ -463,38 +478,46 @@ class Syntax:
 
   @trace
   def _factor(self,curr):
-    """ (Factor)
-    """
 
-    curr = Node( str(self._count) + ': Factor', parent=curr)
-    self._count += 1
+    curr = self._node(curr, 'Factor')
 
 
     factor = self._read()
     if factor.kind in ['integer','real','boolean']:
-      self._add(curr)
+      self._leaf(curr)
+
     elif factor.kind == 'identifier': 
-      self._add(curr)
+
+      self.check_if_declared(factor, self._current_line)
+
+      self._leaf(curr)
       if self._read().symbol == '(':
-        self._add(curr)
+        self._leaf(curr)
         self._expression_list(curr)
-        #TO-DO LIST OF EXPRESSION
         if self._read().symbol == ')':
-          self._add(curr)
+          self._leaf(curr)
         else: 
           return self._error( "Unclosed Expression - Missing ')'")
     elif factor.symbol == 'not':
-      self._add(curr)
+      self._leaf(curr)
       self._factor(curr)
     elif factor.symbol == '(':
-      self._add(curr)
+      self._leaf(curr)
       self._expression(curr)
       if self._read().symbol == ')':
-        self._add(curr)
+        self._leaf(curr)
       else:
         return self._error( 'Unclosed Expression - Missing ")" ')
     else:
       self._error("Missing Factor")
 
+  def _variable(self, curr):
+      
+      curr = self._node(curr, 'Variable')
+      self._leaf(curr)
 
-        
+  def _procedure_activation(self, curr):
+      
+      curr = self._node(curr, 'Procedure Activation')
+      self._leaf(curr)
+
