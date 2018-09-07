@@ -1,2 +1,2 @@
-# LexicalAnalizer
-A simple lexical analyzer for simplied fortran code built in Python 3.6
+# Code Analyzer
+A simple code analyzer for fortran code built in Python 3.6
