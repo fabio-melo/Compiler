@@ -20,7 +20,7 @@ class Lexer:
     self._current_line = 1
     self._current_id = 0
     self._queue = deque(self._load(program_file))
-    self._debug = ['Lexer', debug]
+    self._debug = debug
     self._errors = []
 
 
@@ -238,15 +238,17 @@ class Lexer:
   # Metodos Publicos
 
 
-  def get_tokens(self,*args):
+  def run(self):
     self._start()
 
-    if "output" in args:
+    if self._debug:
       self._print_tokens()
       print('')
 
     if self._errors: 
+      print("Lexical Errors Found")
       return False
     else: 
+      if self._debug: print('[PASSED] Lexical Analysis')
       return self.tokens
   

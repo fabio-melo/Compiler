@@ -9,11 +9,13 @@ import sys
 def trace(func):
   def wrapper(self, *args, **kwargs):
     self._current_level += 1
-    if self._debug: print(f'Trace: ({self._read().id_}) {self._read().symbol} -> {func.__name__} {self._current_level}')
+    if self._debug: print(f'Trace: ({self._read().id_}) \
+      {self._read().symbol} -> {func.__name__} {self._current_level}')
     # \n'f'-> {args[1]}')
     original_result = func(self,*args, **kwargs)
     self._current_level -= 1
-    #print(f'SYN: ({self._read().id_}) {self._read().symbol} -> (Return) {func.__name__} {self._current_level}')
+    #print(f'SYN: ({self._read().id_}) {self._read().symbol} -> 
+    # (Return) {func.__name__} {self._current_level}')
     #print(f'TRACE: {func.__name__}() ' f'returned {original_result!r}')
     return original_result
   return wrapper
@@ -99,7 +101,7 @@ class Syntax(Semantic):
     else: self._error("Program: Missing 'Program' Reserved Word")
 
     if self._read().kind == 'identifier': 
-      self.add_procedure(self._read().symbol)
+      self.program_name = self._read().symbol
       self._leaf(curr)
     else: self._error("Program: Missing Program Identifier") 
     
@@ -110,15 +112,15 @@ class Syntax(Semantic):
     self._var_declaration(curr)
     self._subprogram_declaration_list(curr)
     self._composite_command(curr)
-    
     # Ending Dot
     if self._read().symbol == '.': self._leaf(curr)
     else: self._error("Program: Missing Ending Dot")
 
     # Check if ended
-    if not self._read().symbol: print("IT WORKS - Código Verificado")
+    if not self._read().symbol:
+      if self._debug: print("Syntax Analysis - OK")
     else: self._error("Program: Tokens after Ending Dot")
- 
+
   @trace
   def _subprogram_declaration_list(self,curr):
  
@@ -148,10 +150,10 @@ class Syntax(Semantic):
       if self._read().kind == 'identifier':
         self.add_procedure(self._read().symbol)
         self._leaf(curr)
+        self.add_scope() #escopo
         self._arguments(curr)
         if self._read().symbol == ';':
           self._leaf(curr)
-          self.add_scope() #escopo
           self._var_declaration(curr)
           self._subprogram_declaration_list(curr)
           self._composite_command(curr)
@@ -233,7 +235,6 @@ class Syntax(Semantic):
 
     curr = self._node(curr, 'Arguments')
 
-
     if self._read().symbol == '(':
       self._leaf(curr)
       self._parameter_list(curr)
@@ -241,6 +242,7 @@ class Syntax(Semantic):
         self._leaf(curr)
       else:
         return self._error( 'Missing ")" on Procedure Arguments')
+
 
 
   @trace
@@ -311,11 +313,21 @@ class Syntax(Semantic):
     #VARIABLE : EXPRESSION / PROCEDURE ACTIVATION 
 
     if temp.kind == 'identifier':
-      self.check_if_declared(temp,self._current_line)
+      
+      declared = self.check_if_declared(temp)
+      
+
       self._leaf(curr)
+      
       if self._read().kind == 'attribution':
         self._leaf(curr)
+
+        if declared == 'variable': self.eval_bottom(temp)
+
         self._expression(curr)
+
+        self.eval_run() #RUN EVAL
+
       elif self._read().symbol == '(':
         self._leaf(curr)
         self._expression_list(curr)
@@ -484,12 +496,13 @@ class Syntax(Semantic):
 
     factor = self._read()
     if factor.kind in ['integer','real','boolean']:
+      self.eval_push_p(factor.kind)
       self._leaf(curr)
 
     elif factor.kind == 'identifier': 
 
-      self.check_if_declared(factor, self._current_line)
-
+      self.check_if_declared(factor)
+      self.eval_push(factor)
       self._leaf(curr)
       if self._read().symbol == '(':
         self._leaf(curr)

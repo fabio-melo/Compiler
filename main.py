@@ -4,8 +4,8 @@ import os, webbrowser, time
 
 now = time.time()
 
-#Syntax(Lexer('code.for').get_tokens('output'),debug=True).export_to_file('syntax.dot')
-Syntax(Lexer('code.for').get_tokens('output'),debug=False).export_to_file('syntax.dot')
+#Syntax(Lexer('code.for').run()).export_to_file('syntax.dot')
+Syntax(Lexer('code.for').run(),debug=False).start()
 
 done = time.time()
 
@@ -15,4 +15,4 @@ done = time.time()
 #os.system("dot syntax.dot -Tpng -o syntax.png")
 
 # Abrir o arquivo no Chrome
-# webbrowser.get("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s").open_new("file:///D:/Google%20Drive/Computa%C3%A7%C3%A3o/Atual/_Working/Compiler/syntax.png")
+#webbrowser.get("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s").open_new("file:///D:/Google%20Drive/Computa%C3%A7%C3%A3o/Atual/_Working/Compiler/syntax.png")
