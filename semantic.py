@@ -12,20 +12,20 @@ class Semantic:
     self.scopelist = []
     self.program_name = ''
     self._current_line = None # não tá DRY, mas ok
-
+    self._debug = False
     self.v1, self.v2, self.v3 = None,None,None
     self.eval_stack = []
 
 
   def add_scope(self):
-    print(f'ADD - {self.current_scope}  {len(self.scopelist_stack)}')
+    if self._debug: print(f'SCOPE ADD - {self.current_scope}  {len(self.scopelist_stack)}')
 
     self.scopes.append(deepcopy(self.current_scope))
     self.scopelist_stack.append(self.scopelist)
     self.scopelist = []
     #print(self.current_scope)
   def drop_scope(self):
-    print(f'DROP - {self.current_scope}  {len(self.scopelist_stack)}')
+    if self._debug: print(f'SCOPE DROP - {self.current_scope}  {len(self.scopelist_stack)}')
     self.current_scope = self.scopes.pop()
     self.scopelist = self.scopelist_stack.pop()
 
@@ -111,9 +111,9 @@ class Semantic:
     if (self.v3 == 'boolean' and vx == 'boolean') or \
       (self.v3 == 'integer' and vx == 'integer') or \
       (self.v3 == 'real' and vx in ['integer','real']):
-      print(f"{self.v3} x {vx} ALL OK")
+      if self._debug: print(f"{self.v3} x {vx} ALL OK")
       pass
     else:
-      print(f'ERROR: Line {self._current_line}: type error: should be {self.v3} - {vx} ')
+      print(f'ERROR: Line {self._current_line}: Incompatible Types: should be {self.v3} - {vx} ')
 
     
