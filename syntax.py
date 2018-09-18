@@ -326,7 +326,7 @@ class Syntax(Semantic):
 
         self._expression(curr)
 
-        self.eval_run() #RUN EVAL
+        if declared: self.eval_run() #RUN EVAL
 
       elif self._read().symbol == '(':
         self._leaf(curr)
@@ -501,8 +501,7 @@ class Syntax(Semantic):
 
     elif factor.kind == 'identifier': 
 
-      self.check_if_declared(factor)
-      self.eval_push(factor)
+      if self.check_if_declared(factor): self.eval_push(factor)
       self._leaf(curr)
       if self._read().symbol == '(':
         self._leaf(curr)

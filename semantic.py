@@ -77,6 +77,7 @@ class Semantic:
     else:
       print(f"Error: Line {self._current_line}: Variable {var_.symbol} \
       not declared in this scope")
+      return False
 
   def eval_bottom(self, v3):
     self.eval_stack = []
