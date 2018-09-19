@@ -9,8 +9,8 @@ import sys
 def trace(func):
   def wrapper(self, *args, **kwargs):
     self._current_level += 1
-    if self._debug: print(f'Trace: ({self._read().id_}) \
-      {self._read().symbol} -> {func.__name__} {self._current_level}')
+    #if self._debug: print(f'Trace: ({self._read().id_}) \
+    #  {self._read().symbol} -> {func.__name__} {self._current_level}')
     # \n'f'-> {args[1]}')
     original_result = func(self,*args, **kwargs)
     self._current_level -= 1

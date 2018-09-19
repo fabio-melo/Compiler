@@ -16,19 +16,27 @@ class Semantic:
     self.v1, self.v2, self.v3 = None,None,None
     self.eval_stack = []
     self.eval_flag = ''
+    self.procedure_stack = [[],]
+    self.procedure_scope_stack = []
 
 
   def add_scope(self):
-    if self._debug: print(f'SCOPE ADD - {self.current_scope}  {len(self.scopelist_stack)}')
-
+    if self._debug: 
+      print(f'SCOPE ADD - {self.current_scope}  {len(self.scopelist_stack)}')
+      print(f'SCOPE PROCEDURE ADD - {self.procedure_stack}  {len(self.procedure_scope_stack)}')
     self.scopes.append(deepcopy(self.current_scope))
     self.scopelist_stack.append(self.scopelist)
     self.scopelist = []
+    self.procedure_scope_stack.append(deepcopy(self.procedure_stack))
     #print(self.current_scope)
   def drop_scope(self):
-    if self._debug: print(f'SCOPE DROP - {self.current_scope}  {len(self.scopelist_stack)}')
+    if self._debug: 
+      print(f'SCOPE DROP - {self.current_scope}  {len(self.scopelist_stack)}')
+      print(f'SCOPE PROCEDURE DROP - {self.procedure_stack}  {len(self.procedure_scope_stack)}')
+
     self.current_scope = self.scopes.pop()
     self.scopelist = self.scopelist_stack.pop()
+    self.procedure_stack = self.procedure_stack.pop()
 
   def add_word(self, word):
     if word == self.program_name:
@@ -53,12 +61,12 @@ class Semantic:
       Program name CANNOT be used as a Procedure Name')
       return False
 
-    if word in self.scopelist:
+    if word in self.procedure_stack:
       print(f'ERROR: Line {self._current_line}: \
       variable "{word}" already declared on this scope')
     else:
-      self.scopelist.append(word)
-      self.current_scope[word] = 'procedure'
+      self.procedure_stack.append(word)
+      #self.current_scope[word] = 'procedure'
     
     #print(self.current_scope)
 
