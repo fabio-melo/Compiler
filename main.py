@@ -1,11 +1,12 @@
 from lexer import Lexer
 from syntax import Syntax
-import os, webbrowser, time
+import os, webbrowser, time, sys
 
 now = time.time()
 
 #Syntax(Lexer('code.for').run()).export_to_file('syntax.dot')
-Syntax(Lexer('code.for').run(),debug=False).start()
+if 'debug' in sys.argv: Syntax(Lexer('code.for').run(),debug=True).start()
+else: Syntax(Lexer('code.for').run(),debug=False).start()
 
 done = time.time()
 

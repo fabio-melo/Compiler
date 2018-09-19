@@ -421,16 +421,6 @@ class Syntax(Semantic):
 
 
   @trace
-  def _op_relation(self,curr):
-
-    curr = self._node(curr, 'Relation OP')
-
-
-    if self._read().kind == 'relation':
-      self._leaf(curr)
-
-
-  @trace
   def _simple_expression(self,curr):
 
     curr = self._node(curr, 'Simple Expression')
@@ -463,6 +453,7 @@ class Syntax(Semantic):
     curr = self._node(curr, 'Additive OP')
 
     if self._read().kind == 'addition':
+      self.set_eval_flag(self._read())
       self._leaf(curr)
 
 
@@ -472,7 +463,20 @@ class Syntax(Semantic):
     curr = self._node(curr, 'Multiplicative OP')
 
     if self._read().kind == 'multiplication':
+      self.set_eval_flag(self._read())
       self._leaf(curr)
+
+
+  @trace
+  def _op_relation(self,curr):
+
+    curr = self._node(curr, 'Relation OP')
+
+
+    if self._read().kind == 'relation':
+      self.set_eval_flag(self._read())
+      self._leaf(curr)
+
 
 
   @trace

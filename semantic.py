@@ -15,6 +15,7 @@ class Semantic:
     self._debug = False
     self.v1, self.v2, self.v3 = None,None,None
     self.eval_stack = []
+    self.eval_flag = ''
 
 
   def add_scope(self):
@@ -89,8 +90,26 @@ class Semantic:
   def eval_push_p(self, var_):
     self.eval_stack.append(var_)
 
+  def set_eval_flag(self, op):
+    flag = ''
+    if self.eval_flag not in ['logical_ar','invalid_op',]:
+      if op.symbol in ['and','or']:
+        flag = 'logical'
+      elif op.symbol in ['+','-','/','*']:
+        flag = 'arithm'
+      elif op.kind == 'relation':
+        flag = 'relation'
+      
+      if (flag == 'logical' and self.eval_flag == 'relation') or \
+        (flag == 'relation' and self.eval_flag == 'logical') or \
+        (flag == 'arithm' and self.eval_flag == 'logical') or \
+        (flag == 'logical' and self.eval_flag == 'arithm'):
+        self.eval_flag = 'invalid_op'
+      else: self.eval_flag = flag
+
+
   def eval_run(self):
-    print(f"\nType Check - {self.eval_stack}")
+    if self._debug: print(f"\nType Check - {self.eval_stack}")
     while len(self.eval_stack) > 1:
       v1,v2 = self.eval_stack.pop(), self.eval_stack.pop()
       v3 = ''
@@ -105,16 +124,20 @@ class Semantic:
         #print(f'Invalid Type operation {v1} x {v2} ')
         v3 = 'INVALID'
       self.eval_stack.append(v3)
-      print(f'{v1} X {v2} = {v3}')
-      print(self.eval_stack)
+      if self._debug: 
+        print(f'{v1} X {v2} = {v3}')
+        print(self.eval_stack)
     
     vx = self.eval_stack.pop()
-    if (self.v3 == 'boolean' and vx == 'boolean') or \
+    if self.eval_flag == 'invalid_op':
+      print(f"ERROR: Line {self._current_line}: Invalid Operation, Cannot Mix Relational and Logical Operations in attribution")
+
+    elif (self.v3 == 'boolean' and vx == 'boolean') or \
       (self.v3 == 'integer' and vx == 'integer') or \
       (self.v3 == 'real' and vx in ['integer','real']):
       if self._debug: print(f"{self.v3} x {vx} ALL OK")
       pass
     else:
-      print(f'ERROR: Line {self._current_line}: Incompatible Types: should be {self.v3} - {vx} ')
-
+      print(f'ERROR: Line {self._current_line}: Incompatible Types: should be {self.v3}, read {vx} ')
+    self.eval_flag = '' # reseta flag
     
